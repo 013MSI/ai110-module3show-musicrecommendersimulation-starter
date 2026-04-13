@@ -31,6 +31,14 @@ PROFILES = {
         "energy": 0.92,
         "likes_acoustic": False,
     },
+    # Adversarial profile: conflicting signals (very high energy but sad mood).
+    # No song in the catalog matches both, so the system must compromise.
+    "Adversarial (High-Energy + Sad)": {
+        "genre": "r&b",
+        "mood": "sad",
+        "energy": 0.90,
+        "likes_acoustic": False,
+    },
 }
 
 

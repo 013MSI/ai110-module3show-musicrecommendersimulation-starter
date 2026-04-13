@@ -56,6 +56,8 @@ The original 10 starter songs skewed toward pop, lofi, and rock. Ten additional 
 
 **Static profile.** The system cannot learn that the user skipped a song or replayed another. Every run produces the same output for the same input.
 
+**Conflicting preferences are silently ignored.** When a user asks for something contradictory — high energy *and* a sad mood — no song satisfies both signals. The genre match (+2.0) dominates by default and the unsatisfied preference disappears from the output with no warning to the user. Tested with `genre: r&b, mood: sad, energy: 0.90`: the top result matched genre but scored only 0.68 on energy, and the mood signal never fired at all.
+
 ---
 
 ## 7. Evaluation

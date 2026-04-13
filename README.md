@@ -23,16 +23,18 @@ This simulation uses **content-based filtering only**, scoring every song in the
 
 **Data flow:**
 
-```text
-Input (User Preferences)
-        ↓
-   load_songs()  ←  data/songs.csv
-        ↓
-  score_song()   ← runs for EVERY song in the catalog
-        ↓
-recommend_songs() → sorts all scores, returns top-k
-        ↓
-Output (Ranked list with explanations)
+```mermaid
+flowchart TD
+    A["User Preferences\n(genre, mood, energy, likes_acoustic)"] --> B["load_songs()\nReads data/songs.csv"]
+    B --> C["For every song in catalog:\nscore_song(user_prefs, song)"]
+    C --> D{"Score each signal"}
+    D --> D1["+2.0 genre match"]
+    D --> D2["+1.0 mood match"]
+    D --> D3["+0–1.0 energy similarity"]
+    D --> D4["+0.5 acoustic bonus"]
+    D1 & D2 & D3 & D4 --> E["Total score + reasons list"]
+    E --> F["recommend_songs()\nsorted by score, highest first"]
+    F --> G["Top-k Results\n(song, score, explanation)"]
 ```
 
 ### Algorithm Recipe (Scoring Rule)
@@ -84,19 +86,123 @@ pytest
 
 ## Experiments You Tried
 
-### Three User Profiles
+### Profile 1 — High-Energy Pop
 
-| Profile | genre | mood | energy |
-| --- | --- | --- | --- |
-| High-Energy Pop | pop | happy | 0.85 |
-| Chill Lofi | lofi | chill | 0.38 |
-| Deep Intense Rock | rock | intense | 0.92 |
+```text
+============================================================
+  Profile: High-Energy Pop
+============================================================
+  #1  Sunrise City - Neon Echo
+       Score : 3.97
+       Why   : genre match (+2.0); mood match (+1.0); energy similarity (+0.97)
 
-**High-Energy Pop** — "Sunrise City" scored highest (3.97) because it matched genre + mood + energy. "Gym Hero" came second despite being `mood: intense` because it still matched genre and energy closely.
+  #2  Gym Hero - Max Pulse
+       Score : 2.92
+       Why   : genre match (+2.0); energy similarity (+0.92)
 
-**Chill Lofi** — "Library Rain" and "Midnight Coding" both scored ~4.47 because they hit every signal including the acoustic bonus. "Focus Flow" came third: it missed the mood match (focused ≠ chill) but still scored genre + energy + acoustic.
+  #3  Neon Waltz - Prism Keys
+       Score : 1.94
+       Why   : mood match (+1.0); energy similarity (+0.94)
 
-**Deep Intense Rock** — "Storm Runner" won decisively (3.99) with a full genre + mood + energy hit. The remaining slots went to high-energy songs from other genres (pop, metal, EDM) purely on energy proximity — revealing that when genre diversity is limited in the catalog, energy becomes the tiebreaker.
+  #4  Rooftop Lights - Indigo Parade
+       Score : 1.91
+       Why   : mood match (+1.0); energy similarity (+0.91)
+
+  #5  Sunrise Sermon - Grace Notes
+       Score : 1.82
+       Why   : mood match (+1.0); energy similarity (+0.82)
+```
+
+"Sunrise City" scored highest (3.97) — a full genre + mood + energy match. "Gym Hero" came second despite `mood: intense` because it still matched genre and energy closely. The results felt accurate: all five songs have a bright, upbeat character that fits a pop/happy listener.
+
+### Profile 2 — Chill Lofi
+
+```text
+============================================================
+  Profile: Chill Lofi
+============================================================
+  #1  Library Rain - Paper Lanterns
+       Score : 4.47
+       Why   : genre match (+2.0); mood match (+1.0); energy similarity (+0.97); acoustic vibe match (+0.5)
+
+  #2  Midnight Coding - LoRoom
+       Score : 4.46
+       Why   : genre match (+2.0); mood match (+1.0); energy similarity (+0.96); acoustic vibe match (+0.5)
+
+  #3  Focus Flow - LoRoom
+       Score : 3.48
+       Why   : genre match (+2.0); energy similarity (+0.98); acoustic vibe match (+0.5)
+
+  #4  Quiet Autumn - The Hollow Pine
+       Score : 2.42
+       Why   : mood match (+1.0); energy similarity (+0.92); acoustic vibe match (+0.5)
+
+  #5  Spacewalk Thoughts - Orbit Bloom
+       Score : 2.40
+       Why   : mood match (+1.0); energy similarity (+0.90); acoustic vibe match (+0.5)
+```
+
+"Library Rain" and "Midnight Coding" nearly tied (~4.47), separated only by 0.01 in energy similarity. "Focus Flow" ranked third — it missed mood (focused ≠ chill) but still earned genre + energy + acoustic. Positions 4-5 were acoustic, low-energy folk and ambient, which would genuinely appeal to a lofi listener.
+
+### Profile 3 — Deep Intense Rock
+
+```text
+============================================================
+  Profile: Deep Intense Rock
+============================================================
+  #1  Storm Runner - Voltline
+       Score : 3.99
+       Why   : genre match (+2.0); mood match (+1.0); energy similarity (+0.99)
+
+  #2  Gym Hero - Max Pulse
+       Score : 1.99
+       Why   : mood match (+1.0); energy similarity (+0.99)
+
+  #3  Shatter The Sky - Iron Veil
+       Score : 1.95
+       Why   : mood match (+1.0); energy similarity (+0.95)
+
+  #4  Pulse District - DRVT
+       Score : 0.97
+       Why   : energy similarity (+0.97)
+
+  #5  Back To The Block - Cipher K
+       Score : 0.91
+       Why   : energy similarity (+0.91)
+```
+
+"Storm Runner" won decisively at 3.99. Slots 2-5 went to high-energy songs from pop, metal, EDM, and hip-hop — none matched genre. This exposed the catalog's rock scarcity (only 1 rock song). When a genre is underrepresented, energy proximity becomes the only tiebreaker, producing a tail that a true rock fan would likely reject.
+
+### Profile 4 — Adversarial (High-Energy + Sad)
+
+This is an **adversarial edge-case profile**: `genre: r&b, mood: sad, energy: 0.90`. The conflict is intentional — no song in the catalog is simultaneously high-energy and sad. The system must compromise.
+
+```text
+============================================================
+  Profile: Adversarial (High-Energy + Sad)
+============================================================
+  #1  Velvet Underground - Sable Moon
+       Score : 2.68
+       Why   : genre match (+2.0); energy similarity (+0.68)
+
+  #2  Storm Runner - Voltline
+       Score : 0.99
+       Why   : energy similarity (+0.99)
+
+  #3  Gym Hero - Max Pulse
+       Score : 0.97
+       Why   : energy similarity (+0.97)
+
+  #4  Pulse District - DRVT
+       Score : 0.95
+       Why   : energy similarity (+0.95)
+
+  #5  Shatter The Sky - Iron Veil
+       Score : 0.93
+       Why   : energy similarity (+0.93)
+```
+
+**What this reveals about the system:** "Velvet Underground" (r&b, moody) won because the genre match (+2.0) overwhelmed everything else — even though its energy (0.58) is far from the user's 0.90 target. The mood "sad" never fired at all because no catalog song carries that exact label. This is the adversarial failure mode: conflicting preferences cause the genre signal to dominate by default, and the "sad" mood preference is silently ignored. A real system would surface this to the user ("We couldn't find sad songs with high energy — here's the closest we found").
 
 ### Weight Shift Experiment
 
@@ -104,7 +210,7 @@ Doubling energy weight to 2.0 and halving genre to 1.0 caused "Gym Hero" to over
 
 ### Feature Removal Experiment
 
-Commenting out the mood check eliminated the gap between "Sunrise City" and "Gym Hero" for the pop profile—they both matched on genre and energy. This shows that mood is the key differentiator between an "upbeat pop banger" and a "workout pop anthem."
+Commenting out the mood check eliminated the score gap between "Sunrise City" and "Gym Hero" for the pop profile — they both matched on genre and energy. This shows that mood is the key differentiator between an "upbeat pop banger" and a "workout pop anthem."
 
 ---
 
